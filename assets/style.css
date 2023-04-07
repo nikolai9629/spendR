@@ -1,0 +1,38 @@
+body {
+    font-family: "Lato", sans-serif;
+    margin: 0;
+    background-color: #1f4770;
+}
+
+.page{
+    box-shadow: 0 4px 6px 0 rgba(0, 0, 0, 0.18);
+    background-color: #FFFFFF;
+    max-width: 1700px;
+    margin: 30px auto 30px auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.content{
+    padding: 50px;
+}
+
+.upper-content{
+    display: flex;
+    flex-direction: row;
+}
+
+#balance-graph{
+    width: 1000px;
+    height: 600px;
+}
+
+#main-diag{
+    width: 600px;
+    height: 600px;
+}
+
+#multi-graph{
+    height: 700px;
+}
+

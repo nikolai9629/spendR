@@ -1,0 +1,13 @@
+{
+    "columns": {"дата": "ds", "тип": "type", "сумма": "value", "описание": "discription", "остаток": "balance"},
+    "types": {
+        "доход": "income" ,
+        "долг": "debt",
+        "магазин": "food",
+        "развлечения": "entertainment",
+        "такси": "taxi",
+        "аренда": "rent",
+        "доставка": "delivery",
+        "аптека": "medicines"
+    }
+}
