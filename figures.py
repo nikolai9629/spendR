@@ -23,16 +23,20 @@ def load_data():
     df['ds'] = df['ds'].apply(lambda ds: '-'.join([ds_i for ds_i in ds.split(".")[::-1]]))
     df = df[['ds', 'type', 'value']]
 
+    current_ds = str(dt.datetime.now())[:10]
     prepared_df = pd.DataFrame()
     for (ds, type), single_df in df.groupby(['ds', 'type']):
+        if ds > current_ds:
+            break
         prepared_df = pd.concat([
             prepared_df, pd.DataFrame({'ds': ds, 'type': type, 'value': [single_df['value'].sum()]})
         ])
 
     ds_min = dt.date(*[int(ds_i) for ds_i in df['ds'].min().split('-')])
-    ds_max = dt.date(*[int(ds_i) for ds_i in df['ds'].max().split('-')])
+    current_ds = dt.date(*[int(ds_i) for ds_i in current_ds.split('-')])
+    # ds_max = dt.date(*[int(ds_i) for ds_i in df['ds'].max().split('-')])
 
-    full_ds_list = ['-'.join([ds_i for ds_i in str(ds_min + dt.timedelta(days=x))[:10].split(".")]) for x in range((ds_max-ds_min).days+1)]
+    full_ds_list = ['-'.join([ds_i for ds_i in str(ds_min + dt.timedelta(days=x))[:10].split(".")]) for x in range((current_ds-ds_min).days+1)]
     all_types = [t for _, t in names['types'].items()]
 
     fullsize_empty_df = pd.DataFrame(
@@ -129,17 +133,6 @@ def getbalancefig():
             marker=dict(size=5), name='full_aprxmtn', mode='lines', showlegend=False, legendgroup='full_aprxmtn'
         ), row=1, col=1
     )
-
-    # popt = np.polyfit(np.arange(0, len(ds_list)), balance_values, 1)
-    # yn = np.polyval(popt, np.arange(0, len(extended_ds_list)))
-
-
-    # figure.add_trace(
-    #     go.Scatter(
-    #         x=extended_ds_list, y=yn, line=dict(color='grey'),
-    #         marker=dict(size=5), name='aprxmtn', mode='lines', showlegend=False, legendgroup='aprxmtn'
-    #     ), row=1, col=1
-    # )
 
     figure.add_trace(
         go.Scatter(
