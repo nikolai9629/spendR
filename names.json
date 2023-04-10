@@ -8,6 +8,7 @@
         "такси": "taxi",
         "аренда": "rent",
         "доставка": "delivery",
-        "аптека": "medicines"
+        "аптека": "medicines",
+        "кредит": "credit"
     }
 }
