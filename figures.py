@@ -20,6 +20,13 @@ def load_data():
     url = f'https://docs.google.com/spreadsheets/d/{config["id"]}/gviz/tq?tqx=out:csv'
     df = pd.read_csv(url, error_bad_lines=False)
 
+    prepared_df = prepare_data(df)
+
+    return prepared_df
+
+
+def prepare_data(df):
+
     with open('names.json', encoding='utf-8') as file:
         names = json.load(file)
 
@@ -90,7 +97,7 @@ def getdiagfig():
 
     colors = [
         '#636efa', '#ef553b', '#00cc96',
-        '#ab63fa', '#ffa15a', '#19d3f3', '#DAF7A6'
+        '#ab63fa', '#ffa15a', '#19d3f3', '#daf7a6'
 
     ]
     figure = go.Figure(
@@ -100,11 +107,50 @@ def getdiagfig():
     return figure
 
 
-def getbalancefig():
-    df = load_data()
+def make_forecast_area(df, fixation_point):
     fit_df = df.loc[df.is_fit]
+    predict_df = df.loc[df.is_fit != True]
 
-    figure = make_subplots(cols=1, rows=1, subplot_titles=['balance'])
+    ds_list = fit_df['ds'].unique()
+
+    use_date = dt.date(*[int(ds_i) for ds_i in ds_list[0].split('-')])
+    extended_ds_list = [
+        '-'.join([ds_i for ds_i in str(use_date + dt.timedelta(days=x))[:10].split(".")])
+        for x in range(len(ds_list) + 30)
+    ]
+
+    forecast_dict = {
+        'lower': {'x': extended_ds_list, 'y': np.zeros(len(extended_ds_list))},
+        'upper': {'x': extended_ds_list, 'y': np.zeros(len(extended_ds_list))}
+    }
+
+    lower_mean, upper_mean = 0, fit_df.loc[(fit_df.type == 'food')]['value'].mean()
+
+    for type in TYPES:
+        if type not in ['medicines', 'rent', 'credit']:
+            lower_mean += fit_df.loc[fit_df.type == type]['value'].mean()
+
+    for f_key, f_mean in zip(['lower', 'upper'], [lower_mean, upper_mean]):
+        apxmt_val, shift_val = 0, 0
+        for ds_index, ds in enumerate(extended_ds_list):
+            for _, row in predict_df.loc[predict_df.ds == ds].iterrows():
+                shift_val += row['value']
+
+            forecast_dict[f_key]['y'][ds_index] = apxmt_val + shift_val
+            apxmt_val += f_mean
+
+        forecast_dict[f_key]['y'] += (
+            fixation_point - forecast_dict[f_key]['y'][ds_list.shape[0]-1]
+        )
+
+        for index in np.arange(0, ds_list.shape[0]-1):
+            forecast_dict[f_key]['y'][index] = np.nan
+
+    return forecast_dict
+
+
+def make_balance_line(df):
+    fit_df = df.loc[df.is_fit]
 
     ds_list, balance_values = [], []
 
@@ -115,45 +161,21 @@ def getbalancefig():
             balance += row['value']
         balance_values.append(balance)
 
-    use_date = dt.date(*[int(ds_i) for ds_i in ds_list[0].split('-')])
-    extended_ds_list = [
-        '-'.join([ds_i for ds_i in str(use_date + dt.timedelta(days=x))[:10].split(".")])
-        for x in range(len(ds_list) + 30)
-    ]
+    return {'x': ds_list, 'y': balance_values}
 
-    ##### forecast
-    predict_df = df.loc[df.is_fit != True]
 
-    forecast_dict = {
-        'lower': np.zeros(len(extended_ds_list)),
-        'upper': np.zeros(len(extended_ds_list))
-    }
+def getbalancefig():
+    df = load_data()
 
-    lower_mean, upper_mean = 0, fit_df.loc[(fit_df.type == 'food')]['value'].mean()
+    balance_dict = make_balance_line(df)
+    forecast_dict = make_forecast_area(df, balance_dict['y'][-1])
 
-    for type in TYPES:
-        if type not in ['medicines', 'rent', 'credit']:
-            lower_mean += fit_df.loc[fit_df.type == type]['value'].mean()
 
-    for f_key, f_mean in zip(forecast_dict, [lower_mean, upper_mean]):
-        apxmt_val, shift_val = 0, 0
-        for ds_index, ds in enumerate(extended_ds_list):
-            for _, row in predict_df.loc[predict_df.ds == ds].iterrows():
-                shift_val += row['value']
-
-            forecast_dict[f_key][ds_index] = apxmt_val + shift_val
-            apxmt_val += f_mean
-
-        forecast_dict[f_key] += (
-            balance_values[len(balance_values)-1] - forecast_dict[f_key][len(balance_values)-1]
-        )
-
-        for index in np.arange(0, len(balance_values)-1):
-            forecast_dict[f_key][index] = np.nan
+    figure = make_subplots(cols=1, rows=1, subplot_titles=['balance'])
 
     figure.add_trace(
         go.Scatter(
-            x=extended_ds_list, y=forecast_dict['upper'],
+            x=forecast_dict['upper']['x'], y=forecast_dict['upper']['y'],
             line=dict(color='rgba(99, 110, 252, 0.25)', width=1),
             marker=dict(size=5), name='food_aprxmtn', mode='lines',
             showlegend=False, legendgroup='food_aprxmtn'
@@ -162,7 +184,7 @@ def getbalancefig():
 
     figure.add_trace(
         go.Scatter(
-            x=extended_ds_list, y=forecast_dict['lower'],
+            x=forecast_dict['lower']['x'], y=forecast_dict['lower']['y'],
             line=dict(color='rgba(99, 110, 252, 0.25)', width=1),
             fillcolor='rgba(99, 110, 252, 0.25)', fill='tonexty',
             marker=dict(size=5), name='full_aprxmtn', mode='lines',
@@ -172,17 +194,10 @@ def getbalancefig():
 
     figure.add_trace(
         go.Scatter(
-            x=ds_list, y=balance_values, line=dict(color='#1f4770'),
-            marker=dict(size=7), name='balance', mode='lines+markers',
-            showlegend=False, legendgroup='upper'
+            x=balance_dict['x'], y=balance_dict['y'],
+            line=dict(color='#1f4770'), marker=dict(size=7), name='balance',
+            mode='lines+markers', showlegend=False, legendgroup='upper'
         ), row=1, col=1
     )
 
     return figure
-
-# blue #636efa
-# red #ef553b
-# green #00cc96
-# purple #ab63fa
-# orange #ffa15a
-# cyan #19d3f3
