@@ -176,8 +176,13 @@ def make_norm_forecast_area(df, fixation_point):
 
     sample_num, ds_num = 100000, len(predict_ds_list)-1
     forecast_samples = stats.norm.rvs(loc=loc, scale=scale, size=sample_num*ds_num).reshape(sample_num, ds_num)
-    forecast_samples[forecast_samples > fit_mean_values.max()] = fit_mean_values.max()
-    forecast_samples[forecast_samples < fit_mean_values.min()] = fit_mean_values.min()
+
+    fit_min, fit_max = fit_mean_values.min(), fit_mean_values[fit_mean_values != 0].max()
+    ####
+    fit_max = -5000
+
+    forecast_samples[forecast_samples > fit_max] = fit_max
+    forecast_samples[forecast_samples < fit_min] = fit_min
 
     upper_sample_value, lower_sample_value = forecast_samples[0].sum(), forecast_samples[0].sum()
     upperr_sample_index, lower_sample_index = 0, 0
@@ -205,7 +210,11 @@ def make_norm_forecast_area(df, fixation_point):
             for _, row in predict_df.loc[predict_df.ds == predict_ds_list[ds_index+1]].iterrows():
                 shift_val += row['value']
 
-            apxmt_val += lower_value
+            if apxmt_val + shift_val + lower_value < 0:
+                apxmt_val -= apxmt_val + shift_val
+            else:
+                apxmt_val += lower_value
+
             forecast_dict[f_key]['y'][ds_index+1] = apxmt_val + shift_val
 
     return forecast_dict
