@@ -36,7 +36,7 @@ def prepare_data(df):
     for old_key, new_key in names['types'].items():
         df.loc[(df.type == old_key), 'type'] = new_key
 
-    df['ds'] = df['ds'].apply(lambda ds: '-'.join([ds_i for ds_i in ds.split(".")[::-1]]))
+    df['ds'] = df['ds'].apply(lambda ds: '-'.join(ds.split(".")[::-1]))
     df = df[['ds', 'type', 'value']]
 
     prepared_df = pd.DataFrame()
