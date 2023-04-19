@@ -18,6 +18,7 @@ app.layout = html.Div([
                 children=[
                     html.Div(
                         children=[
+                            html.Div(['spendR'], className='logo'),
                             dcc.Graph(
                                 id='main-diag',
                                 config={'displaylogo': False},
@@ -48,6 +49,7 @@ app.layout = html.Div([
 def update_diag_figure(_):
     figure = figures.getdiagfig()
     return figure
+
 
 @app.callback(
     Output('multi-graph', 'figure'),

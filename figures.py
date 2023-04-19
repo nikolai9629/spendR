@@ -5,6 +5,8 @@ import datetime as dt
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 
+from scipy import stats
+
 import json
 
 TYPES = [
@@ -149,6 +151,66 @@ def make_forecast_area(df, fixation_point):
     return forecast_dict
 
 
+def make_norm_forecast_area(df, fixation_point):
+    fit_df = df.loc[df.is_fit]
+    predict_df = df.loc[df.is_fit != True]
+
+    fit_ds_list = fit_df['ds'].unique()
+
+    fit_mean_values = np.zeros(fit_ds_list.shape[0])
+    for ds_index, (_, ds_fit_df) in enumerate(fit_df.groupby('ds')):
+        ds_fit_mean = 0
+        for type in TYPES:
+            if type not in ['medicines', 'rent', 'credit']:
+                ds_fit_mean += ds_fit_df.loc[ds_fit_df.type == type]['value'].values[0]
+        fit_mean_values[ds_index] = ds_fit_mean
+
+    loc = fit_mean_values.mean()
+    scale = np.std(fit_mean_values)
+
+    last_date = dt.date(*[int(ds_i) for ds_i in fit_ds_list[-1].split('-')])
+    predict_ds_list = [
+        '-'.join([ds_i for ds_i in str(last_date + dt.timedelta(days=x))[:10].split(".")])
+        for x in range(31)
+    ]
+
+    sample_num, ds_num = 100000, len(predict_ds_list)-1
+    forecast_samples = stats.norm.rvs(loc=loc, scale=scale, size=sample_num*ds_num).reshape(sample_num, ds_num)
+    forecast_samples[forecast_samples > fit_mean_values.max()] = fit_mean_values.max()
+    forecast_samples[forecast_samples < fit_mean_values.min()] = fit_mean_values.min()
+
+    upper_sample_value, lower_sample_value = forecast_samples[0].sum(), forecast_samples[0].sum()
+    upperr_sample_index, lower_sample_index = 0, 0
+
+    for sample_index in range(1, forecast_samples.shape[0]):
+        pot_extremum_value = forecast_samples[sample_index].sum()
+
+        if pot_extremum_value > upper_sample_value:
+            upper_sample_value = pot_extremum_value
+            upperr_sample_index = sample_index
+
+        if pot_extremum_value < lower_sample_value:
+            lower_sample_value = pot_extremum_value
+            lower_sample_index = sample_index
+
+    forecast_dict = {
+        'lower': {'x': predict_ds_list, 'y': np.zeros(len(predict_ds_list))},
+        'upper': {'x': predict_ds_list, 'y': np.zeros(len(predict_ds_list))}
+    }
+
+    for f_key, sample_index in zip(['lower', 'upper'], [lower_sample_index, upperr_sample_index]):
+        apxmt_val, shift_val = fixation_point, 0
+        forecast_dict[f_key]['y'][0] = apxmt_val
+        for ds_index, lower_value in enumerate(forecast_samples[sample_index]):
+            for _, row in predict_df.loc[predict_df.ds == predict_ds_list[ds_index+1]].iterrows():
+                shift_val += row['value']
+
+            apxmt_val += lower_value
+            forecast_dict[f_key]['y'][ds_index+1] = apxmt_val + shift_val
+
+    return forecast_dict
+
+
 def make_balance_line(df):
     fit_df = df.loc[df.is_fit]
 
@@ -168,7 +230,7 @@ def getbalancefig():
     df = load_data()
 
     balance_dict = make_balance_line(df)
-    forecast_dict = make_forecast_area(df, balance_dict['y'][-1])
+    forecast_dict = make_norm_forecast_area(df, balance_dict['y'][-1])
 
 
     figure = make_subplots(cols=1, rows=1, subplot_titles=['balance'])
@@ -176,7 +238,7 @@ def getbalancefig():
     figure.add_trace(
         go.Scatter(
             x=forecast_dict['upper']['x'], y=forecast_dict['upper']['y'],
-            line=dict(color='rgba(99, 110, 252, 0.25)', width=1),
+            line=dict(color='rgba(99, 110, 252, 0.35)', width=1),
             marker=dict(size=5), name='food_aprxmtn', mode='lines',
             showlegend=False, legendgroup='food_aprxmtn'
         ), row=1, col=1
@@ -185,7 +247,7 @@ def getbalancefig():
     figure.add_trace(
         go.Scatter(
             x=forecast_dict['lower']['x'], y=forecast_dict['lower']['y'],
-            line=dict(color='rgba(99, 110, 252, 0.25)', width=1),
+            line=dict(color='rgba(99, 110, 252, 0.35)', width=1),
             fillcolor='rgba(99, 110, 252, 0.25)', fill='tonexty',
             marker=dict(size=5), name='full_aprxmtn', mode='lines',
             showlegend=False, legendgroup='lower'

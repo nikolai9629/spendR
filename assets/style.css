@@ -18,6 +18,7 @@ body {
 }
 
 .upper-content{
+    position: relative;
     display: flex;
     flex-direction: row;
 }
@@ -36,3 +37,18 @@ body {
     height: 700px;
 }
 
+.logo {
+    position: absolute;
+    top: -35px;
+    left: -35px;
+    z-index: 1;
+
+    font-size: 16px;
+    font-weight: bold;
+    color: #ffffff;
+    background-color: #1f4770;
+    padding: 10px;
+    border-radius: 5px;
+    text-align: center;
+    width: 120px;
+}
