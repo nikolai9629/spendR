@@ -52,7 +52,8 @@ def prepare_data(df):
         '-'.join([ds_i for ds_i in str(ds_min + dt.timedelta(days=x))[:10].split(".")])
         for x in range((current_ds-ds_min).days+1)
     ]
-    all_types = [t for _, t in names['types'].items()]
+
+    all_types = df['type'].unique()
 
     fullsize_empty_df = pd.DataFrame(
         data={'value': 0},
@@ -176,13 +177,6 @@ def make_norm_forecast_area(df, fixation_point):
 
     sample_num, ds_num = 100000, len(predict_ds_list)-1
     forecast_samples = stats.norm.rvs(loc=loc, scale=scale, size=sample_num*ds_num).reshape(sample_num, ds_num)
-
-    fit_min, fit_max = fit_mean_values.min(), fit_mean_values[fit_mean_values != 0].max()
-    ####
-    fit_max = -5000
-
-    forecast_samples[forecast_samples > fit_max] = fit_max
-    forecast_samples[forecast_samples < fit_min] = fit_min
 
     upper_sample_value, lower_sample_value = forecast_samples[0].sum(), forecast_samples[0].sum()
     upperr_sample_index, lower_sample_index = 0, 0
